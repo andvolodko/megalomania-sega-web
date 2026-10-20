@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mega-Lo-Mania: The God Game | Web Edition with Mouse Adapter</title>
+  <meta name="description" content="Play the classic 1991 RTS God Game Mega-Lo-Mania (Sega Genesis / Mega Drive) in your web browser with modern mouse controls, CRT filters, tech tree codex, and island passwords." />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-section">
+        <img src="./assets/icon.jpg" alt="Mega-Lo-Mania Icon" class="brand-icon" id="brand-logo" />
+        <div class="brand-title">
+          <h1>Mega-Lo-Mania</h1>
+          <span class="badge-sub">Sega Genesis Web Edition &bull; Mouse Enhanced</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <select id="rom-select" class="select-input" title="Switch Game Version">
+          <option value="./roms/megalomania_rev01.bin" selected>Mega-Lo-Mania (Europe Rev 01)</option>
+          <option value="./roms/tyrants_usa.bin">Tyrants: Fight Through Time (USA)</option>
+        </select>
+        <button id="btn-guide-modal" class="btn" title="View Game Guide & Strategy">
+          <span>📖</span> How to Play
+        </button>
+        <button id="btn-fullscreen" class="btn btn-primary" title="Toggle Fullscreen">
+          <span>⛶</span> Fullscreen
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      <!-- Game Stage -->
+      <section class="game-stage-wrapper">
+        <div class="viewport-card" id="game-card">
+          <!-- Top bar -->
+          <div class="viewport-topbar">
+            <div class="status-indicator">
+              <span class="status-dot" id="system-status-dot"></span>
+              <span id="system-status-text">INITIALIZING ENGINE...</span>
+            </div>
+
+            <div class="toolbar-group">
+              <div class="range-wrapper" title="Mouse Tracking Speed">
+                <span>Sensitivity:</span>
+                <input type="range" id="mouse-sensitivity" class="range-slider" min="0.4" max="3.5" step="0.1" value="1.4" />
+                <span id="sensitivity-value">1.4x</span>
+              </div>
+
+              <button id="btn-pointerlock-toggle" class="btn btn-active" title="Toggle Pointer Lock on click">
+                <span>🎯</span> Pointer Lock: ON
+              </button>
+
+              <button id="btn-crt-toggle" class="btn" title="Toggle 90s CRT Scanline Shader">
+                <span>📺</span> CRT Shader
+              </button>
+
+              <span class="rom-badge" id="active-rom-badge">MEGA DRIVE 68000</span>
+            </div>
+          </div>
+
+          <!-- Game Viewport Canvas -->
+          <div class="game-viewport" id="game-wrapper">
+            <div id="game"></div>
+            <div class="crt-overlay" id="crt-overlay"></div>
+            <div class="pointer-lock-hint" id="pointer-lock-hint">
+              <span>🎯</span> Mouse Locked &bull; Press <kbd>ESC</kbd> to unlock
+            </div>
+          </div>
+
+          <!-- Controls Toolbar -->
+          <div class="controls-toolbar">
+            <div class="toolbar-group">
+              <button id="btn-quick-save" class="btn" title="Save emulator state (Slot 1)">
+                <span>💾</span> Quick Save
+              </button>
+              <button id="btn-quick-load" class="btn" title="Load emulator state (Slot 1)">
+                <span>📂</span> Quick Load
+              </button>
+              <button id="btn-fast-forward" class="btn" title="Toggle Fast Forward (Speed up research & mining)">
+                <span>⏩</span> Speed 2x
+              </button>
+            </div>
+
+            <div class="toolbar-group">
+              <button id="btn-pause-emulator" class="btn" title="Pause / Resume Game">
+                <span id="pause-icon">⏸️</span> <span id="pause-text">Pause</span>
+              </button>
+              <button id="btn-mute-sound" class="btn" title="Toggle Sound">
+                <span id="sound-icon">🔊</span> Mute
+              </button>
+              <button id="btn-reset-game" class="btn" title="Restart Mega-Lo-Mania">
+                <span>🔄</span> Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mouse Telemetry HUD -->
+        <div class="hud-telemetry">
+          <!-- Mouse Button Realtime Telemetry -->
+          <div class="hud-card">
+            <div class="hud-header">
+              <h3><span>🖱️</span> Mouse to Sega Controller Mapper</h3>
+              <span class="badge-sub" id="mouse-mode-status">ACTIVE</span>
+            </div>
+            <div class="mouse-visualizer">
+              <div class="mouse-btn-indicator">
+                <div class="indicator-key" id="ind-btn-c">C</div>
+                <div class="indicator-label">Left Click<br><b>Select / Action</b></div>
+              </div>
+              <div class="mouse-btn-indicator">
+                <div class="indicator-key btn-a" id="ind-btn-a">A</div>
+                <div class="indicator-label">Middle Click<br><b>Inspect / Info</b></div>
+              </div>
+              <div class="mouse-btn-indicator">
+                <div class="indicator-key btn-b" id="ind-btn-b">B</div>
+                <div class="indicator-label">Right Click<br><b>Cancel / Back</b></div>
+              </div>
+              <div class="mouse-btn-indicator">
+                <div class="indicator-key" id="ind-btn-start">▶</div>
+                <div class="indicator-label">Space / Enter<br><b>Pause / Menu</b></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- D-Pad Directional Telemetry -->
+          <div class="hud-card">
+            <div class="hud-header">
+              <h3><span>🧭</span> Cursor Motion Vector</h3>
+              <span class="badge-sub" id="vector-status">READY</span>
+            </div>
+            <div class="dpad-visualizer">
+              <div class="dpad-key up" id="dpad-up">▲</div>
+              <div class="dpad-key left" id="dpad-left">◄</div>
+              <div class="dpad-key center">•</div>
+              <div class="dpad-key right" id="dpad-right">►</div>
+              <div class="dpad-key down" id="dpad-down">▼</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Codex & Quick Intel Sidebar -->
+      <aside class="side-codex">
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="tab-codex">Tech Tree</button>
+          <button class="tab-btn" data-tab="tab-islands">Islands</button>
+          <button class="tab-btn" data-tab="tab-controls">Controls</button>
+        </nav>
+
+        <!-- Tab 1: Tech Tree Codex -->
+        <div class="tab-pane active" id="tab-codex">
+          <div class="tips-banner">
+            <span class="tips-icon">💡</span>
+            <div>Assign men to <b>Design</b> early to discover weapons and defensive shields for your current epoch!</div>
+          </div>
+          <div class="codex-scroll-area" id="epoch-list-container">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Tab 2: Islands & Passwords -->
+        <div class="tab-pane" id="tab-islands">
+          <div class="tips-banner">
+            <span class="tips-icon">🔑</span>
+            <div>Click any password below to copy it, then type it in the Mega-Lo-Mania Island Select screen!</div>
+          </div>
+          <div class="codex-scroll-area" id="island-list-container">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Tab 3: Detailed Controls Reference -->
+        <div class="tab-pane" id="tab-controls">
+          <div class="hud-card">
+            <div class="hud-header">
+              <h3><span>🎮</span> Control Scheme</h3>
+            </div>
+            <div class="modal-body" style="font-size: 0.8rem;">
+              <p><b>Left Click:</b> Sega Button C &bull; Select sector, assign men, launch attack, build structures.</p>
+              <p><b>Right Click:</b> Sega Button B &bull; Cancel selection, recall units, reduce workers, close window.</p>
+              <p><b>Middle Click:</b> Sega Button A &bull; Inspect sector stats, tech details, weapon status.</p>
+              <p><b>Mouse Movement:</b> Steers the in-game cursor using proportional velocity tracking.</p>
+              <p><b>Pointer Lock:</b> Keeps cursor locked inside the screen so it never slips away during intense battles.</p>
+              <p><b>Keyboard Alternatives:</b> Arrow keys to move, C = Action, X = Cancel, Z = Inspect, Space/Enter = Start.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Strategy Guide Modal -->
+    <div class="modal-backdrop" id="guide-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2><span>👑</span> Mega-Lo-Mania: The God Game Guide</h2>
+          <button class="btn" id="btn-close-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>
+            You play as one of four gods (<strong>Scarlet, Caesar, Oberon, Madcap</strong>) battling across <strong>10 Epochs</strong> (from 28,000 BC Stone Age to 2001+ AD Nuclear/Space Age) to conquer 28 islands.
+          </p>
+          <h4>Core Strategy Loop:</h4>
+          <ul>
+            <li><strong>Population:</strong> Always leave at least 1 person in your tower so your civilization multiplies!</li>
+            <li><strong>Design:</strong> Put men on Design to invent shields, weapons, catapults, and planes.</li>
+            <li><strong>Mining:</strong> Put men to mine elements (Solarium, Terrarium, etc.) needed to build inventions.</li>
+            <li><strong>Factory:</strong> Forge weapons and build tower shields to prevent premature annihilation.</li>
+            <li><strong>Attack:</strong> Form armies and march on enemy towers to claim their sectors and people!</li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="btn-modal-gotit">Let's Play!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-msg" id="toast-msg">
+      <span id="toast-icon">✨</span>
+      <span id="toast-text">Password copied to clipboard!</span>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

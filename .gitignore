@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build outputs
+dist/
+dist-ssr/
+*.local
+
+# Editor & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment
+.env
+.env.*
+
+# Raw Data & Original ROM archives
+data/
+*.7z
+*.zip
+
