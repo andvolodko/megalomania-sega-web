@@ -20,6 +20,7 @@ class MegaLoManiaApp {
     this.setupUI();
     this.loadEmulator();
     this.setupMouseAdapter();
+    this.setupHeightSync();
   }
 
   loadEmulator() {
@@ -185,49 +186,98 @@ class MegaLoManiaApp {
       }
     });
 
-    // Quick Save
+    // Quick Save (In-Memory + Storage Slot 1)
     document.getElementById('btn-quick-save')?.addEventListener('click', () => {
       try {
-        if (window.EJS_emulator?.gameManager?.saveState) {
-          window.EJS_emulator.gameManager.saveState();
-        } else {
-          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', code: 'F2' }));
+        const emu = window.EJS_emulator;
+        if (emu?.gameManager?.getState) {
+          const state = emu.gameManager.getState();
+          if (state && state.length > 0) {
+            this.quickSaveBuffer = state;
+            try {
+              // Persist backup in localStorage
+              const binaryStr = Array.from(state).map(b => String.fromCharCode(b)).join('');
+              localStorage.setItem('megalomania_quicksave', btoa(binaryStr));
+            } catch (e) {}
+            this.showToast('💾 Game Saved to Slot 1!');
+            return;
+          }
+        }
+        // Fallback to EmulatorJS internal save button
+        if (emu?.elements?.bottomBar?.saveState?.[0]) {
+          emu.elements.bottomBar.saveState[0].click();
           this.showToast('💾 Save State Triggered');
+        } else {
+          this.showToast('⚠️ Emulator not ready for save yet');
         }
       } catch (err) {
-        this.showToast('Save state not ready yet');
+        this.showToast('Save error: ' + err.message);
       }
     });
 
-    // Quick Load
+    // Quick Load (Slot 1)
     document.getElementById('btn-quick-load')?.addEventListener('click', () => {
       try {
-        if (window.EJS_emulator?.gameManager?.loadState) {
-          window.EJS_emulator.gameManager.loadState();
-        } else {
-          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F4', code: 'F4' }));
-          this.showToast('📂 Load State Triggered');
+        const emu = window.EJS_emulator;
+        let stateData = this.quickSaveBuffer;
+        if (!stateData) {
+          try {
+            const savedB64 = localStorage.getItem('megalomania_quicksave');
+            if (savedB64) {
+              const binaryStr = atob(savedB64);
+              stateData = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                stateData[i] = binaryStr.charCodeAt(i);
+              }
+              this.quickSaveBuffer = stateData;
+            }
+          } catch (e) {}
+        }
+
+        if (stateData && emu?.gameManager?.loadState) {
+          emu.gameManager.loadState(stateData);
+          this.showToast('📂 Slot 1 Loaded Successfully!');
+          return;
+        }
+
+        if (!stateData) {
+          this.showToast('⚠️ No Save found in Slot 1! Press Quick Save first.');
+          return;
+        }
+
+        if (emu?.elements?.bottomBar?.loadState?.[0]) {
+          emu.elements.bottomBar.loadState[0].click();
         }
       } catch (err) {
-        this.showToast('Load state not ready yet');
+        this.showToast('Load error: ' + err.message);
       }
     });
 
-    // Fast Forward
+    // Fast Forward (Speed Toggle)
     const btnFf = document.getElementById('btn-fast-forward');
     btnFf?.addEventListener('click', () => {
       this.isFastForward = !this.isFastForward;
-      if (this.isFastForward) {
-        btnFf.classList.add('btn-active');
-        btnFf.innerHTML = '<span>⏩</span> Speed: FAST';
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Space', code: 'Space' }));
-        this.showToast('⏩ Fast Forward ON (Speeding up mining/research)');
-      } else {
-        btnFf.classList.remove('btn-active');
-        btnFf.innerHTML = '<span>⏩</span> Speed 2x';
-        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Space', code: 'Space' }));
-        this.showToast('Speed Normalized');
-      }
+      const emu = window.EJS_emulator;
+      try {
+        if (emu?.gameManager) {
+          if (this.isFastForward) {
+            emu.isFastForward = true;
+            emu.gameManager.setFastForwardRatio?.(3.0);
+            emu.gameManager.toggleFastForward?.(1);
+            btnFf.classList.add('btn-active');
+            btnFf.innerHTML = '<span>⏩</span> Speed: FAST (3x)';
+            this.showToast('⏩ Fast Forward ON (3x Speed)');
+          } else {
+            emu.isFastForward = false;
+            emu.gameManager.toggleFastForward?.(0);
+            btnFf.classList.remove('btn-active');
+            btnFf.innerHTML = '<span>⏩</span> Speed 2x';
+            this.showToast('Speed Normalized (1x)');
+          }
+          return;
+        }
+      } catch (e) {}
+      this.showToast('Speed toggle not ready yet');
     });
 
     // Pause / Resume
@@ -236,45 +286,78 @@ class MegaLoManiaApp {
       this.isPaused = !this.isPaused;
       const icon = document.getElementById('pause-icon');
       const text = document.getElementById('pause-text');
-      if (this.isPaused) {
-        window.EJS_emulator?.gameManager?.pause?.();
-        if (icon) icon.textContent = '▶️';
-        if (text) text.textContent = 'Resume';
-        btnPause.classList.add('btn-active');
-        this.showToast('Game Paused');
-      } else {
-        window.EJS_emulator?.gameManager?.resume?.();
-        if (icon) icon.textContent = '⏸️';
-        if (text) text.textContent = 'Pause';
-        btnPause.classList.remove('btn-active');
-        this.showToast('Game Resumed');
+      const emu = window.EJS_emulator;
+
+      try {
+        if (this.isPaused) {
+          if (typeof emu?.pause === 'function') {
+            emu.pause();
+          } else if (emu?.elements?.bottomBar?.playPause?.[0]) {
+            emu.elements.bottomBar.playPause[0].click();
+          }
+          if (icon) icon.textContent = '▶️';
+          if (text) text.textContent = 'Resume';
+          btnPause.classList.add('btn-active');
+          this.showToast('⏸️ Game Paused');
+        } else {
+          if (typeof emu?.play === 'function') {
+            emu.play();
+          } else if (emu?.elements?.bottomBar?.playPause?.[1]) {
+            emu.elements.bottomBar.playPause[1].click();
+          }
+          if (icon) icon.textContent = '⏸️';
+          if (text) text.textContent = 'Pause';
+          btnPause.classList.remove('btn-active');
+          this.showToast('▶️ Game Resumed');
+        }
+      } catch (err) {
+        this.showToast('Pause error: ' + err.message);
       }
     });
 
-    // Mute / Sound
+    // Mute / Unmute Sound
     const btnMute = document.getElementById('btn-mute-sound');
     btnMute?.addEventListener('click', () => {
       this.isMuted = !this.isMuted;
-      const icon = document.getElementById('sound-icon');
-      if (window.EJS_emulator) {
-        window.EJS_emulator.muted = this.isMuted;
-      }
-      if (this.isMuted) {
-        if (icon) icon.textContent = '🔇';
-        btnMute.classList.add('btn-active');
-        this.showToast('Audio Muted');
-      } else {
-        if (icon) icon.textContent = '🔊';
-        btnMute.classList.remove('btn-active');
-        this.showToast('Audio Unmuted');
+      const emu = window.EJS_emulator;
+
+      try {
+        if (this.isMuted) {
+          if (emu) {
+            emu.muted = true;
+            emu.setVolume?.(0);
+          }
+          btnMute.classList.add('btn-active');
+          btnMute.innerHTML = '<span id="sound-icon">🔇</span> Unmute';
+          this.showToast('🔇 Audio Muted');
+        } else {
+          if (emu) {
+            emu.muted = false;
+            emu.setVolume?.(emu.volume || 0.6);
+          }
+          btnMute.classList.remove('btn-active');
+          btnMute.innerHTML = '<span id="sound-icon">🔊</span> Mute';
+          this.showToast('🔊 Audio Unmuted');
+        }
+      } catch (err) {
+        this.showToast('Audio error: ' + err.message);
       }
     });
 
     // Reset Game
     document.getElementById('btn-reset-game')?.addEventListener('click', () => {
       if (confirm('Restart Mega-Lo-Mania from title screen?')) {
-        window.EJS_emulator?.gameManager?.restart?.();
-        this.showToast('🔄 Game Restarted');
+        const emu = window.EJS_emulator;
+        try {
+          if (emu?.gameManager?.restart) {
+            emu.gameManager.restart();
+          } else if (emu?.elements?.bottomBar?.restart?.[0]) {
+            emu.elements.bottomBar.restart[0].click();
+          }
+          this.showToast('🔄 Game Restarted');
+        } catch (e) {
+          window.location.reload();
+        }
       }
     });
 
@@ -316,50 +399,143 @@ class MegaLoManiaApp {
           <div class="epoch-title">Epoch ${epoch.id}: ${epoch.name}</div>
           <div class="epoch-era">${epoch.era}</div>
         </div>
-        <p style="font-size: 0.76rem; color: var(--text-dim); margin-bottom: 6px;">${epoch.description}</p>
-        <div>
-          ${epoch.inventions.map(inv => `
-            <span class="invention-pill" title="${inv.desc}">
-              <b>${inv.name}</b> <span class="men">(${inv.men} men)</span>
-            </span>
-          `).join('')}
+
+        ${epoch.milestone ? `
+          <div class="milestone-badge">${epoch.milestone}</div>
+        ` : ''}
+
+        <p class="epoch-desc">${epoch.description}</p>
+
+        <div class="tech-grid">
+          <div class="tech-row">
+            <span class="tech-tag offense">⚔️ Offense</span>
+            <div class="tech-info">
+              <span class="tech-name">${epoch.inventions.offense.name}</span>
+              <span class="tech-desc">${epoch.inventions.offense.desc}</span>
+            </div>
+          </div>
+          <div class="tech-row">
+            <span class="tech-tag defense">🛡️ Defense</span>
+            <div class="tech-info">
+              <span class="tech-name">${epoch.inventions.defense.name}</span>
+              <span class="tech-desc">${epoch.inventions.defense.desc}</span>
+            </div>
+          </div>
+          <div class="tech-row">
+            <span class="tech-tag shield">🧱 Shield</span>
+            <div class="tech-info">
+              <span class="tech-name">${epoch.inventions.shield.name}</span>
+              <span class="tech-desc">${epoch.inventions.shield.desc}</span>
+            </div>
+          </div>
         </div>
+
+        ${epoch.proTip ? `
+          <div class="epoch-pro-tip">
+            <span class="pro-tip-icon">💡</span>
+            <span>${epoch.proTip}</span>
+          </div>
+        ` : ''}
       </div>
     `).join('');
+  }
+
+  setupHeightSync() {
+    this.syncSidebarHeight();
+    window.addEventListener('resize', () => this.syncSidebarHeight());
+    const leftStage = document.querySelector('.game-stage-wrapper');
+    if (leftStage && window.ResizeObserver) {
+      new ResizeObserver(() => this.syncSidebarHeight()).observe(leftStage);
+    }
+  }
+
+  syncSidebarHeight() {
+    const leftStage = document.querySelector('.game-stage-wrapper');
+    const sideCodex = document.querySelector('.side-codex');
+    if (leftStage && sideCodex) {
+      if (window.innerWidth > 1200) {
+        const targetHeight = leftStage.offsetHeight;
+        sideCodex.style.height = `${targetHeight}px`;
+        sideCodex.style.maxHeight = `${targetHeight}px`;
+      } else {
+        sideCodex.style.height = '';
+        sideCodex.style.maxHeight = '';
+      }
+    }
   }
 
   renderIslands() {
     const container = document.getElementById('island-list-container');
     if (!container) return;
 
-    container.innerHTML = GAME_CODEX.epochs.map(epoch => `
+    let html = '';
+
+    // Secret arcade minigame
+    if (GAME_CODEX.secretCodes?.length > 0) {
+      html += `
+        <div class="epoch-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); margin-bottom: 6px;">
+          <div class="epoch-header">
+            <div class="epoch-title" style="color: var(--accent-gold);">👾 Secret Arcade Mini-Game</div>
+            <span class="badge-sub">EASTER EGG</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin: 4px 0 8px;">
+            Enter in <b>Options ➔ Load</b> to play a hidden <i>Asteroids / Sinistar</i> shooter!
+          </p>
+          <div class="island-row" style="border-left-color: var(--accent-gold);">
+            <div><b>Sinistar Shooter:</b> <code style="color: var(--accent-gold); font-size: 0.9rem;">JOOLS</code></div>
+            <button class="island-pass" data-pass="JOOLS" title="Click to copy">JOOLS 📋</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Epochs & Verified Sega Genesis Passwords
+    html += GAME_CODEX.epochs.map(epoch => `
       <div class="epoch-card">
         <div class="epoch-header">
-          <div class="epoch-title">Epoch ${epoch.id} Islands</div>
+          <div class="epoch-title">Epoch ${epoch.id}: ${epoch.name}</div>
           <div class="epoch-era">${epoch.era}</div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
+        
+        <!-- Verified Sega Genesis Password -->
+        <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 8px 10px; margin: 4px 0 8px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-size: 0.7rem; color: var(--accent-cyan); font-family: var(--font-mono); font-weight: 600;">
+              SEGA LOAD CODE &bull; ${epoch.passwordDesc || 'Options ➔ Load'}
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: #fff; letter-spacing: 0.08em;">
+              ${epoch.password}
+            </div>
+          </div>
+          <button class="island-pass" data-pass="${epoch.password}" title="Click to copy Sega password">
+            Copy 📋
+          </button>
+        </div>
+
+        <!-- Islands in Epoch -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; font-family: var(--font-mono); font-weight: 600;">
+            Islands in this Epoch:
+          </div>
           ${epoch.islands.map(island => `
-            <div class="island-row">
-              <div>
-                <b>${island.name}</b> (${island.sectors} sectors) &bull; <span style="color: var(--text-dim);">${island.difficulty}</span>
-              </div>
-              <button class="island-pass" data-pass="${island.password}" title="Click to copy password">
-                ${island.password} 📋
-              </button>
+            <div class="island-row" style="padding: 4px 8px; font-size: 0.74rem;">
+              <span><b>${island.name}</b> (${island.sectors} sectors)</span>
+              <span style="color: var(--text-dim);">${island.difficulty}</span>
             </div>
           `).join('')}
         </div>
       </div>
     `).join('');
 
+    container.innerHTML = html;
+
     // Attach copy password event
     container.querySelectorAll('.island-pass').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         const pass = btn.getAttribute('data-pass');
         if (pass) {
           navigator.clipboard?.writeText(pass);
-          this.showToast(`🔑 Password "${pass}" copied to clipboard!`);
+          this.showToast(`🔑 Sega Password "${pass}" copied!`);
         }
       });
     });

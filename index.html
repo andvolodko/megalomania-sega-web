@@ -7,6 +7,15 @@
   <meta name="description" content="Play the classic 1991 RTS God Game Mega-Lo-Mania (Sega Genesis / Mega Drive) in your web browser with modern mouse controls, CRT filters, tech tree codex, and island passwords." />
   <link rel="icon" type="image/png" href="./favicon.png" />
   <link rel="stylesheet" href="./src/style.css" />
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-WBJ27663Y2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-WBJ27663Y2');
+  </script>
 </head>
 <body>
   <div class="app-layout">
@@ -25,6 +34,12 @@
           <option value="./roms/megalomania_rev01.bin" selected>Mega-Lo-Mania (Europe Rev 01)</option>
           <option value="./roms/tyrants_usa.bin">Tyrants: Fight Through Time (USA)</option>
         </select>
+        <a href="https://github.com/andvolodko/megalomania-sega-web/discussions" target="_blank" rel="noopener noreferrer" class="btn" title="Community & Discussions">
+          <span>💬</span> Community
+        </a>
+        <a href="https://github.com/andvolodko/megalomania-sega-web/issues" target="_blank" rel="noopener noreferrer" class="btn" title="Report Bugs or Feedback">
+          <span>🐞</span> Report Bug
+        </a>
         <button id="btn-guide-modal" class="btn" title="View Game Guide & Strategy">
           <span>📖</span> How to Play
         </button>
@@ -159,7 +174,7 @@
         <div class="tab-pane active" id="tab-codex">
           <div class="tips-banner">
             <span class="tips-icon">💡</span>
-            <div>Assign men to <b>Design</b> early to discover weapons and defensive shields for your current epoch!</div>
+            <div><b>Research Speed:</b> More men on <b>Design</b> = faster research (not a cost)! Keep 1–2 idle men in your tower so population multiplies.</div>
           </div>
           <div class="codex-scroll-area" id="epoch-list-container">
             <!-- Populated dynamically via JS -->
@@ -168,10 +183,6 @@
 
         <!-- Tab 2: Islands & Passwords -->
         <div class="tab-pane" id="tab-islands">
-          <div class="tips-banner">
-            <span class="tips-icon">🔑</span>
-            <div>Click any password below to copy it, then type it in the Mega-Lo-Mania Island Select screen!</div>
-          </div>
           <div class="codex-scroll-area" id="island-list-container">
             <!-- Populated dynamically via JS -->
           </div>

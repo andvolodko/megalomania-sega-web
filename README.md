@@ -1,11 +1,13 @@
 # Mega-Lo-Mania: Sega Genesis Web Edition (Mouse Enhanced)
 
+[![Play Online](https://img.shields.io/badge/🎮%20Play%20Online-GitHub%20Pages-22c55e?style=for-the-badge&logo=github)](https://andvolodko.github.io/megalomania-sega-web/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Web](https://img.shields.io/badge/Platform-Web%20%2F%20WASM-cyan.svg)](https://developer.mozilla.org/en-US/docs/WebAssembly)
 [![Engine: Genesis Plus GX](https://img.shields.io/badge/Core-Genesis%20Plus%20GX-purple.svg)](https://github.com/ekeeke/Genesis-Plus-GX)
 [![Build Tool: Vite](https://img.shields.io/badge/Built%20with-Vite-646CFF.svg)](https://vitejs.dev/)
 
-A modern, browser-based web edition of the classic 1991 real-time strategy god game **Mega-Lo-Mania** (*Tyrants: Fight Through Time* on Sega Genesis / Mega Drive) by Sensible Software, featuring **native PC mouse controls**, a real-time telemetry HUD, an interactive Strategy Codex, 28 island passwords, and retro CRT scanline shaders.
+> ### 👑 [Play Mega-Lo-Mania Web Edition Online](https://andvolodko.github.io/megalomania-sega-web/)
+> **Instant play in your browser** — authentic Sega Mega Drive / Genesis emulation with native PC mouse support, live telemetry HUD, retro CRT shaders, and interactive Strategy Codex.
 
 ---
 
@@ -27,8 +29,8 @@ This project bridges that gap by running the authentic Sega Genesis ROM in moder
   - **HTML5 Pointer Lock API:** Locks cursor within the game viewport on click to prevent slipping out of bounds.
   - **Adjustable Sensitivity:** Slider scaling from `0.4x` to `3.5x` in real time.
 - **Interactive Telemetry HUD:** Live visual feedback lights up active controller buttons (C, B, A, Start) and directional vectors during play.
-- **Interactive Tech Tree Codex:** Full guide covering all 10 epochs (Stone Age 28,000 BC to Nuclear/Space Age 2001+ AD), listing inventions, unit types, and required manpower.
-- **28-Island Password Vault:** Single-click copy for all level progression passwords (`JOE`, `LIZ`, `MAX`, `GUY`, `WAR`, etc.).
+- **Interactive Tech Tree Codex:** Full guide covering all 10 epochs (Stone Age 9,500 BC to Final Conflict 2001+ AD), listing authentic offensive weapons, defensive tower turrets, repair shields, milestones, and pro tips.
+- **Sega Genesis Password Vault:** Single-click copy for authentic 11-letter load codes (e.g. `SIZCSVLOPNL`, `SMLCUQKDKHH`) and the hidden `JOOLS` arcade shooter mini-game easter egg.
 - **Authentic Retro Features:**
   - **CRT Scanline Shader:** Realistic 90s television aperture scanline overlay.
   - **Quick Save & Quick Load:** Save states in slot memory.
