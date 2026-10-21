@@ -1,9 +1,72 @@
 import { GenesisMouseAdapter } from './mouseAdapter.js';
 import { GAME_CODEX } from './gameCodex.js';
 
+const ROM_CONFIG = {
+  megalomania: {
+    key: 'megalomania',
+    relativePath: './roms/megalomania_rev01.bin',
+    title: 'Mega-Lo-Mania (Europe Rev 01)',
+    shortName: 'Mega-Lo-Mania',
+    badge: 'MEGA-LO-MANIA (EU)'
+  },
+  tyrants: {
+    key: 'tyrants',
+    relativePath: './roms/tyrants_usa.bin',
+    title: 'Tyrants: Fight Through Time (USA)',
+    shortName: 'Tyrants',
+    badge: 'TYRANTS (USA)'
+  }
+};
+
+function resolveRomUrl(relativePath) {
+  const loc = window.location;
+  let dirPath = loc.pathname;
+  if (!dirPath.endsWith('/')) {
+    if (dirPath.includes('.')) {
+      dirPath = dirPath.substring(0, dirPath.lastIndexOf('/') + 1);
+    } else {
+      dirPath = dirPath + '/';
+    }
+  }
+  const baseUrl = new URL(dirPath, loc.origin);
+  return new URL(relativePath.replace(/^\.\//, ''), baseUrl).href;
+}
+
+function determineActiveRom() {
+  // 1. Check URL query params (?rom=tyrants or ?version=tyrants)
+  const urlParams = new URLSearchParams(window.location.search);
+  const queryRom = (urlParams.get('rom') || urlParams.get('version') || '').toLowerCase();
+
+  if (queryRom) {
+    if (queryRom.includes('tyrant')) {
+      return ROM_CONFIG.tyrants;
+    }
+    if (queryRom.includes('megalomania') || queryRom.includes('europe') || queryRom.includes('rev01')) {
+      return ROM_CONFIG.megalomania;
+    }
+  }
+
+  // 2. Check localStorage persistence
+  try {
+    const stored = (localStorage.getItem('megalomania_selected_rom') || '').toLowerCase();
+    if (stored.includes('tyrant')) {
+      return ROM_CONFIG.tyrants;
+    }
+    if (stored.includes('megalomania')) {
+      return ROM_CONFIG.megalomania;
+    }
+  } catch (e) {
+    console.warn('LocalStorage unavailable:', e);
+  }
+
+  // 3. Default fallback
+  return ROM_CONFIG.megalomania;
+}
+
 class MegaLoManiaApp {
   constructor() {
-    this.currentRom = new URL('roms/megalomania_rev01.bin', window.location.href).href;
+    this.activeRomConfig = determineActiveRom();
+    this.currentRom = resolveRomUrl(this.activeRomConfig.relativePath);
     this.mouseAdapter = null;
     this.isMuted = false;
     this.isPaused = false;
@@ -51,7 +114,7 @@ class MegaLoManiaApp {
     script.async = true;
     script.onload = () => {
       if (statusText) statusText.textContent = 'ENGINE ACTIVE (60 FPS)';
-      this.showToast('🎮 Mega-Lo-Mania Engine Ready!');
+      this.showToast(`🎮 ${this.activeRomConfig.title} Ready!`);
     };
     script.onerror = () => {
       if (statusText) statusText.textContent = 'NETWORK ERROR LOADING EMULATOR';
@@ -122,16 +185,31 @@ class MegaLoManiaApp {
   }
 
   setupUI() {
-    // ROM Selector
+    // ROM Selector & Badge synchronization
     const romSelect = document.getElementById('rom-select');
+    const badge = document.getElementById('active-rom-badge');
+
+    if (romSelect) {
+      romSelect.value = this.activeRomConfig.relativePath;
+    }
+    if (badge) {
+      badge.textContent = this.activeRomConfig.badge;
+    }
+
     romSelect?.addEventListener('change', (e) => {
-      this.currentRom = new URL(e.target.value, window.location.href).href;
-      const badge = document.getElementById('active-rom-badge');
-      if (badge) {
-        badge.textContent = e.target.selectedIndex === 0 ? 'MEGA-LO-MANIA (EU)' : 'TYRANTS (USA)';
-      }
-      this.showToast(`Loading: ${e.target.options[e.target.selectedIndex].text}...`);
-      window.location.reload();
+      const selectedValue = e.target.value;
+      const isTyrants = selectedValue.includes('tyrants');
+      const targetConfig = isTyrants ? ROM_CONFIG.tyrants : ROM_CONFIG.megalomania;
+
+      try {
+        localStorage.setItem('megalomania_selected_rom', targetConfig.key);
+      } catch (err) {}
+
+      this.showToast(`Loading: ${targetConfig.title}...`);
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('rom', targetConfig.key);
+      window.location.href = url.href;
     });
 
     // Sensitivity Slider
@@ -186,7 +264,7 @@ class MegaLoManiaApp {
       }
     });
 
-    // Quick Save (In-Memory + Storage Slot 1)
+    // Quick Save (In-Memory + Storage Slot 1 per ROM)
     document.getElementById('btn-quick-save')?.addEventListener('click', () => {
       try {
         const emu = window.EJS_emulator;
@@ -195,11 +273,12 @@ class MegaLoManiaApp {
           if (state && state.length > 0) {
             this.quickSaveBuffer = state;
             try {
-              // Persist backup in localStorage
+              // Persist backup in localStorage per ROM
               const binaryStr = Array.from(state).map(b => String.fromCharCode(b)).join('');
-              localStorage.setItem('megalomania_quicksave', btoa(binaryStr));
+              const saveKey = `megalomania_quicksave_${this.activeRomConfig.key}`;
+              localStorage.setItem(saveKey, btoa(binaryStr));
             } catch (e) {}
-            this.showToast('💾 Game Saved to Slot 1!');
+            this.showToast(`💾 ${this.activeRomConfig.shortName} Saved to Slot 1!`);
             return;
           }
         }
@@ -222,7 +301,8 @@ class MegaLoManiaApp {
         let stateData = this.quickSaveBuffer;
         if (!stateData) {
           try {
-            const savedB64 = localStorage.getItem('megalomania_quicksave');
+            const saveKey = `megalomania_quicksave_${this.activeRomConfig.key}`;
+            const savedB64 = localStorage.getItem(saveKey) || localStorage.getItem('megalomania_quicksave');
             if (savedB64) {
               const binaryStr = atob(savedB64);
               stateData = new Uint8Array(binaryStr.length);
@@ -236,7 +316,7 @@ class MegaLoManiaApp {
 
         if (stateData && emu?.gameManager?.loadState) {
           emu.gameManager.loadState(stateData);
-          this.showToast('📂 Slot 1 Loaded Successfully!');
+          this.showToast(`📂 ${this.activeRomConfig.shortName} Slot 1 Loaded!`);
           return;
         }
 
@@ -346,7 +426,8 @@ class MegaLoManiaApp {
 
     // Reset Game
     document.getElementById('btn-reset-game')?.addEventListener('click', () => {
-      if (confirm('Restart Mega-Lo-Mania from title screen?')) {
+      const name = this.activeRomConfig.shortName;
+      if (confirm(`Restart ${name} from title screen?`)) {
         const emu = window.EJS_emulator;
         try {
           if (emu?.gameManager?.restart) {
@@ -354,7 +435,7 @@ class MegaLoManiaApp {
           } else if (emu?.elements?.bottomBar?.restart?.[0]) {
             emu.elements.bottomBar.restart[0].click();
           }
-          this.showToast('🔄 Game Restarted');
+          this.showToast(`🔄 ${name} Restarted`);
         } catch (e) {
           window.location.reload();
         }
